@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <style>
+    /* 스타일 시트 */
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background-color: #f5f5f5;
+      color: #333;
+      padding: 20px;
+    }
+
+    h1 {
+      color: #007BFF;
+      text-align: center;
+      border-bottom: 2px solid #007BFF;
+      padding-bottom: 10px;
+    }
+
+    h3 {
+      text-align: center;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #007BFF;
+      color: white;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>메뉴판</h1>
+  <div id="menuList"></div>
+
+  <script>
+    // API 엔드포인트 URL 정의
+    var menuUrl = "https://busan-7beach.openapi.redtable.global/api/menu/korean?serviceKey=xJI7ymcNsy9T4stV1usrRHBdNJjWkxPXPLmizGwvUc1lw7cEyO1YiTbqjcEyLTpX";
+    var dscrnUrl = "https://busan-7beach.openapi.redtable.global/api/menu-dscrn/korean?serviceKey=xJI7ymcNsy9T4stV1usrRHBdNJjWkxPXPLmizGwvUc1lw7cEyO1YiTbqjcEyLTpX";
+
+    // Promise.all을 사용하여 두 개의 API 호출 동시에 처리
+    Promise.all([
+      fetch(menuUrl).then(response => response.json()),
+      fetch(dscrnUrl).then(response => response.json())
+    ])
+    .then(([menuResponse, dscrnResponse]) => {
+      // API 응답 데이터 추출
+      var menuData = menuResponse.body;
+      var dscrnData = dscrnResponse.body;
+
+      // 메뉴 데이터와 메뉴 설명 데이터를 병합
+      var mergedData = menuData.map(menu => {
+        var dscrn = dscrnData.find(d => d.MENU_ID === menu.MENU_ID);
+        return {...menu, ...dscrn};
+      });
+
+      // 식당, 지역, 지역 카테고리, 서브 카테고리에 따라 메뉴를 그룹화하는 함수
+      function groupMenusByRestaurantAndCategory(menus) {
+        var groupedMenus = {}; // 그룹화된 메뉴를 저장할 빈 객체 초기화
+
+        menus.forEach(function (menu) {
+          if (!groupedMenus[menu.RSTR_NM + " - " + menu.AREA_NM]) {
+            groupedMenus[menu.RSTR_NM + " - " + menu.AREA_NM] = {};
+          }
+
+          if (!groupedMenus[menu.RSTR_NM + " - " + menu.AREA_NM][menu.MENU_CTGRY_LCLAS_NM]) {
+            groupedMenus[menu.RSTR_NM + " - " + menu.AREA_NM][menu.MENU_CTGRY_LCLAS_NM] = {};
+          }
+
+          if (!groupedMenus[menu.RSTR_NM + " - " + menu.AREA_NM][menu.MENU_CTGRY_LCLAS_NM][menu.MENU_CTGRY_SCLAS_NM||""]) {
+            groupedMenus[menu.RSTR_NM + " - " + menu.AREA_NM][menu.MENU_CTGRY_LCLAS_NM][menu.MENU_CTGRY_SCLAS_NM||""] = [];
+          }
+ 
+          groupedMenus[menu.RSTR_NM + " - " + menu.AREA_NM][menu.MENU_CTGRY_LCLAS_NM][menu.MENU_CTGRY_SCLAS_NM||""].push(menu);
+        });
+
+        return groupedMenus; // 최종 그룹화된 메뉴 객체 반환
+      }
+
+      // 그룹화된 메뉴 데이터를 HTML로 변환
+      var groupedMenus = groupMenusByRestaurantAndCategory(mergedData);
+      var menuListHtml = "";
+
+      // HTML 생성 및 이벤트 리스너 추가
+      Object.keys(groupedMenus).forEach(function (restaurant) {
+        var [area, rstr] = restaurant.split(" - ");
+        menuListHtml += "<h2><a href='#' onclick='handleRestaurantClick(\"" + rstr + " - " + area + "\")'>" + rstr + " - " + area + "</a></h2>";
+
+        Object.keys(groupedMenus[restaurant]).forEach(function (lclas) {
+          menuListHtml += "<h3>" + lclas + "</h3>";
+
+          Object.keys(groupedMenus[restaurant][lclas]).forEach(function (sclas) {
+            menuListHtml += "<h4>" + sclas + "</h4>";
+            menuListHtml += "<table>";
+            menuListHtml += "<tr><th>메뉴명</th><th>가격</th><th>메뉴설명</th></tr>";
+
+            groupedMenus[restaurant][lclas][sclas].forEach(function (menu) {
+              menuListHtml += "<tr>";
+              menuListHtml += "<td>" + (menu.MENU_NM || "") + "</td>";
+              menuListHtml += "<td>" + (menu.MENU_PRICE || "") + "원</td>";
+              menuListHtml += "<td>" + (menu.MENU_DSCRN || "") + "</td>";
+              menuListHtml += "</tr>";
+            });
+
+            menuListHtml += "</table>";
+          });
+        });
+      });
+
+      // HTML을 DOM에 삽입
+      document.getElementById("menuList").innerHTML = menuListHtml;
+    });
+
+    function handleRestaurantClick(restaurantName) {
+      // 검색어와 함께 test2.html 열기
+      var searchQuery = restaurantName; // 필요에 따라 검색어를 수정할 수 있습니다.
+      var searchUrl = 'http://127.0.0.1:5500/test2.html?query=' + encodeURIComponent(searchQuery);
+
+      // 검색 URL을 새 창이나 탭에서 열기
+      window.open(searchUrl, '_blank');
+
+      // 필요에 따라 추가적인 동작이나 로직 수행 가능
+      alert("식당을 클릭했습니다: " + restaurantName);
+    }
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <style>
+    .hamburger-icon {
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    body {
+      background-color: black;
+    }
+
+    h2 {
+      background-color: midnightblue;
+      color: white;
+      padding: 10px;
+      position: relative;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .img-container {
+      display: none;
+      flex-wrap: wrap;
+      padding: 10px;
+    }
+
+    .img-container img {
+      width: 200px;
+      height: 200px;
+      margin: 5px;
+      cursor: pointer;
+      background-color: #3498db;
+      border-radius: 10px;
+      transition: transform 0.3s ease-in-out;
+    }
+
+    .img-container img:hover {
+      transform: scale(1.1);
+    }
+
+    h3 {
+      background-color: #4CAF50;
+      color: white;
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1;
+      padding-top: 100px;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.4);
+    }
+
+    .modal-content {
+      position: relative;
+      margin: auto;
+      padding: 20px;
+      width: 80%;
+      max-width: 700px;
+      background-color: white;
+      border-radius: 10px;
+    }
+
+    .modal-content img {
+      width: 100%;
+      height: auto;
+    }
+
+    .close {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      color: #000;
+    }
+
+    .close:hover,
+    .close:focus {
+      color: red;
+      cursor: pointer;
+    }
+
+    .menu-info {
+      padding: 10px;
+    }
+
+    .menu-info p {
+      margin: 0;
+    }
+
+    .menu-list {
+      list-style-type: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .menu-list li {
+      margin: 5px;
+    }
+
+    .menu-list li:hover {
+      cursor: pointer;
+      background-color: #3498db;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>부산 7 BEACH 음식 이미지 정보</h2>
+  <div id="info"></div>
+  <div id="myModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal()">&times;</span>
+      <img id="modalImg">
+      <div class="menu-info" id="menuInfo"></div>
+    </div>
+  </div>
+
+  <script>
+    var xhr = new XMLHttpRequest();
+    var url = "https://busan-7beach.openapi.redtable.global/api/food/img";
+    var menuUrl = "https://busan-7beach.openapi.redtable.global/api/rstr/img";
+    var serviceKey = "xJI7ymcNsy9T4stV1usrRHBdNJjWkxPXPLmizGwvUc1lw7cEyO1YiTbqjcEyLTpX";
+    var pageNo = 1;
+    url += "?serviceKey=" + encodeURIComponent(serviceKey);
+    url += "&pageNo=" + pageNo;
+
+    xhr.open("GET", url, true);
+
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        var json = JSON.parse(xhr.responseText);
+        var html = "";
+        var currentRestaurant = "";
+
+        for (var i = 0; i < json.body.length; i++) {
+          var item = json.body[i];
+
+          if (item.RSTR_NM !== currentRestaurant) {
+            if (i !== 0) {
+              html += "</div>";
+            }
+
+            html += "<h3>" + item.AREA_NM + " - " + item.RSTR_NM + "<div class='hamburger-icon' onclick='toggleMenuList(\"menuContainer" + i + "\", \"" + item.RSTR_NM + "\", \"" + item.RSTR_ID + "\", \"" + item.RSTR_IMG_URL + "\")'>&#8801;</div></h3>";
+            html += "<div id='menuContainer" + i + "' class='img-container hidden'>";
+            currentRestaurant = item.RSTR_NM;
+          }
+
+          html += "<img src='" + item.FOOD_IMG_URL + "' alt='" + item.RSTR_NM + "' onclick='showMenu(\"" + item.RSTR_NM + "\", \"" + item.RSTR_ID + "\", \"" + item.RSTR_IMG_URL + "\")' />";
+        }
+
+        html += "</div>";
+        document.getElementById("info").innerHTML = html;
+
+        var modal = document.getElementById("myModal");
+        var modalImg = document.getElementById("modalImg");
+        var menuInfo = document.getElementById("menuInfo");
+
+        window.showMenu = function (restaurantName, restaurantId, imageUrl) {
+          // 클릭한 이미지의 식당 정보를 가져와서 메뉴 정보를 요청합니다.
+          getMenuInfo(restaurantId);
+          // 이미지를 모달에 표시
+          modalImg.src = imageUrl;
+          modal.style.display = "block";
+        };
+
+        window.toggleMenuList = function (menuContainerId, restaurantName, restaurantId, imageUrl) {
+          var imgContainer = document.getElementById(menuContainerId);
+          imgContainer.style.display = (imgContainer.style.display === 'none' || imgContainer.style.display === '') ? 'flex' : 'none';
+
+          // 클릭한 아이콘의 식당 정보를 가져와서 메뉴 정보를 요청합니다.
+          getMenuInfo(restaurantId);
+        };
+
+        window.closeModal = function () {
+          modal.style.display = "none";
+        };
+      }
+    };
+
+    xhr.send();
+
+    function getMenuInfo(restaurantId) {
+      var menuXhr = new XMLHttpRequest();
+      var menuRequestUrl = menuUrl + "?serviceKey=" + encodeURIComponent(serviceKey) + "&RSTR_ID=" + restaurantId;
+
+      menuXhr.open("GET", menuRequestUrl, true);
+
+      menuXhr.onreadystatechange = function () {
+        if (menuXhr.readyState === 4 && menuXhr.status === 200) {
+          var menuJson = JSON.parse(menuXhr.responseText);
+          // 메뉴 정보를 화면에 표시하거나 원하는 로직을 수행할 수 있습니다.
+          console.log("Menu Info:", menuJson);
+        }
+      };
+
+      menuXhr.send();
+    }
+  </script>
+
+</body>
+
+</html>
